@@ -159,7 +159,7 @@ app.post('/v1/telegram/notify', requireSchoolAuth, async (req, res) => {
     }
 
     try {
-        const botMessage = `🔔 <b>School 21 Notification</b>\n\nPeer <b>${senderLogin}</b> is calling you!\nCheck the portal.`;
+        const botMessage = `🔔 Peer <b>${senderLogin}</b> is calling you!.`;
 
         await axios.post(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`, {
             chat_id: targetUser.telegram_id,
@@ -171,6 +171,49 @@ app.post('/v1/telegram/notify', requireSchoolAuth, async (req, res) => {
     } catch (e) {
         return res.status(500).json({ error: "Telegram API Error" });
     }
+});
+
+// 7. ПОЛУЧЕНИЕ СПИСКА ВСЕХ ПИРОВ
+app.get('/v1/telegram/peers', requireSchoolAuth, async (req, res) => {
+  try {
+    // Получаем все ключи вида school_settings:*
+    const keys = await redis.keys('school_settings:*');
+    
+    if (keys.length === 0) {
+      return res.json({ peers: [] });
+    }
+
+    // Получаем значения по всем ключам за один запрос (pipeline)
+    const pipeline = redis.pipeline();
+    keys.forEach(key => pipeline.get(key));
+    const values = await pipeline.exec();
+
+    // Формируем результат
+    const peers = [];
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      const value = values[i]?.[1]; // [error, result] → берем result
+
+      if (!value) continue;
+
+      try {
+        const data = JSON.parse(value);
+        const login = key.replace('school_settings:', '');
+        peers.push({
+          school_login: login,
+          visibility: data.visibility || 'private'
+        });
+      } catch (e) {
+        // Игнорируем повреждённые записи
+        continue;
+      }
+    }
+
+    return res.json({ peers });
+  } catch (error) {
+    console.error('Failed to fetch peers list:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
