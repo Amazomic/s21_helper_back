@@ -159,7 +159,7 @@ app.post('/v1/telegram/notify', requireSchoolAuth, async (req, res) => {
     }
 
     try {
-        const botMessage = `🔔 Peer <b>${senderLogin}</b> is calling you!.`;
+        const botMessage = `🔔 Peer <b>${senderLogin}</b> is calling you!`;
 
         await axios.post(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`, {
             chat_id: targetUser.telegram_id,
